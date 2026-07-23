@@ -15,6 +15,7 @@ env/
 # Model checkpoints
 models/
 *.pth
+*.pt
 
 # Dataset
 data/

@@ -54,7 +54,7 @@ def evaluate(model, criterion, dataloader, device):
         for i, batch in enumerate(pbar):
             X = batch["X"].to(device)
             Y = batch["Y"].to(device)
-            patch_label = batch["y_inst"].to(device)
+            patch_label = batch["y_inst"].squeeze().to(device)
             mask = batch["mask"].to(device)
             Y_pred, attention_scores = model(X, mask, return_att=True)
 
