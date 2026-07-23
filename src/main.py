@@ -7,7 +7,10 @@ from torch.utils.data import DataLoader
 from torchmil.data import collate_fn
 
 from src.training import evaluate, train
-from src.xai_eval.numerical_metrics import compute_numerical_metrics, print_numerical_metrics
+from src.xai_eval.numerical_metrics import (
+    compute_numerical_metrics,
+    print_numerical_metrics,
+)
 from src.xai_eval.plot import plot_all_numerical_metrics
 from src.xai_eval.rsrg import rsrg
 from src.xai_eval.srg import srg

@@ -24,8 +24,12 @@ def srg(scores, model, device, num_bins=100, plot=True):
     Returns:
         The Symmetric Relevance Gain
     """
-    asc, asc_preds = aupc(scores, model, descending=False, device=device, num_bins=num_bins)
-    desc, desc_preds = aupc(scores, model, descending=True, device=device, num_bins=num_bins)
+    asc, asc_preds = aupc(
+        scores, model, descending=False, device=device, num_bins=num_bins
+    )
+    desc, desc_preds = aupc(
+        scores, model, descending=True, device=device, num_bins=num_bins
+    )
     if plot:
         X = range(num_bins + 1)
         plt.figure()
