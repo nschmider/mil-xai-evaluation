@@ -2,8 +2,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_attention_dist(metrics, path):
-    """
-    Generates histogram of attention distribution of positive/negative patches respectively
+    """Generates histogram of attention distribution of positive/negative patches respectively
 
     Args:
         metrics : Metrics computed by function numerical_metrics.compute_numerical_metrics()
@@ -36,8 +35,7 @@ def plot_attention_dist(metrics, path):
 
 
 def plot_roc(metrics, path):
-    """
-    Generates ROC comparing the attribution scores and patch labels
+    """Generates ROC comparing the attribution scores and patch labels
 
     Args:
         metrics : Metrics computed by function numerical_metrics.compute_numerical_metrics()
@@ -57,8 +55,7 @@ def plot_roc(metrics, path):
 
 
 def plot_prc(metrics, path):
-    """
-    Generates Precision-Recall curve comparing the attribution scores and patch labels
+    """Generates Precision-Recall curve comparing the attribution scores and patch labels
 
     Args:
         metrics : Metrics computed by function numerical_metrics.compute_numerical_metrics()
@@ -77,8 +74,7 @@ def plot_prc(metrics, path):
 
 
 def plot_normalized_roc(metrics, path):
-    """
-    Generates ROC comparing the normalized attribution scores and patch labels
+    """Generates ROC comparing the normalized attribution scores and patch labels
 
     Args:
         metrics : Metrics computed by function numerical_metrics.compute_numerical_metrics()
@@ -97,8 +93,7 @@ def plot_normalized_roc(metrics, path):
 
 
 def plot_normalized_prc(metrics, path):
-    """
-    Generates Precision-Recall curve comparing the normalized attribution scores and patch labels
+    """Generates Precision-Recall curve comparing the normalized attribution scores and patch labels
 
     Args:
         metrics : Metrics computed by function numerical_metrics.compute_numerical_metrics()

@@ -10,14 +10,14 @@ warnings.filterwarnings("ignore")
 
 
 def srg(scores, model, device, num_bins=100, plot=True):
-    """
-    Symmetric Relevance Gain, metric to compare the change in prediction when removing most important features first or last.
+    """Symmetric Relevance Gain.
+    Metric to compare the change in prediction when removing most important features first or last.
     Uses bins that are progressively removed.
 
     Args:
         scores: Attribution scores
         model: The trained model
-        device: CUDA or CPU
+        device: Device used for computation
         num_bins: Number of bins. Defaults to 100.
         plot: Whether to plot the model prediction curves. Defaults to True.
 
@@ -49,14 +49,13 @@ def srg(scores, model, device, num_bins=100, plot=True):
 
 
 def aupc(scores, model, descending, device, num_bins=100):
-    """
-    Generates prediction for progressively removed patches in descending or ascending order according to attribution.
+    """Generates prediction for progressively removed patches in descending or ascending order according to attribution.
 
     Args:
         scores: The attribution scores
         model: The trained model
         descending: The order in which to remove the patches
-        device: CUDA or CPU
+        device: Device used for computation
         num_bins: Number of bins. Defaults to 100.
 
     Returns:

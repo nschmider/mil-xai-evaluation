@@ -43,16 +43,15 @@ def importance_sampling_mask(scores, n_masks):
 def importance_sampling_multiple_bags(
     dataset, scores, model, metric, n_masks, device, plot=False
 ):
-    """
-    Importance sampling for multiple bags.
+    """Importance sampling for multiple bags.
 
     Args:
         dataset: The dataset
         scores: Attribution scores
         model: The trained model
         metric: Sample patches according to relevance or in reverse order
-        n_masks: Number of masks to smoothe prediction
-        device: CUDA or CPU
+        n_masks: Number of masks to smooth prediction
+        device: Device used for computation
         plot: Whether to plot the performance curve with respect to cardinality. Defaults to False.
 
     Returns:
@@ -72,8 +71,7 @@ def importance_sampling_multiple_bags(
 def importance_sampling_one_bag(
     X, model, scores, metric, n_masks, bag_num, device, plot=False, slide_label=-1
 ):
-    """
-    Importance sampling for one bag.
+    """Importance sampling for one bag.
     Samples n_masks times with cardinalities 1 to |N|.
     Uses attribution scores as weights, or 1 - attribution scores in the case of metric "R-MIF"
 
@@ -84,7 +82,7 @@ def importance_sampling_one_bag(
         metric: Sample patches according to relevance or in reverse order
         n_masks: Number of masks to smoothe prediction
         bag_num: Index of the current bag in the dataset
-        device: CUDA or CPU
+        device: Device used for computation
         plot: Whether to plot the performance curve with respect to cardinality. Defaults to False.
         slide_label: Whether the slide is positive or negative, for plotting. Defaults to -1.
 
@@ -125,8 +123,7 @@ def importance_sampling_one_bag(
 
 
 def rsrg(model, scores, n_masks, dataset, device, plot=False):
-    """
-    Computes Relative Symmetric Relevance Gain.
+    """Computes Relative Symmetric Relevance Gain.
     Samples patches according to their attribution scores or inversely, computes the difference.
 
     Args:
@@ -134,7 +131,7 @@ def rsrg(model, scores, n_masks, dataset, device, plot=False):
         scores: Attribution scores
         n_masks: Number of masks to smoothe prediction
         dataset: The dataset
-        device: CUDA or CPU
+        device: Device used for computation
         plot: Whether to plot the performance curve with respect to cardinality. Defaults to False.
 
     Returns:

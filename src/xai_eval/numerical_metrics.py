@@ -156,8 +156,7 @@ def compute_numerical_metrics(scores, patch_labels):
 
 
 def print_numerical_metrics(metrics):
-    """
-    Prints information to numerical metrics
+    """Prints information to numerical metrics
 
     Args:
         metrics: Metrics dict from function compute_numerical_metrics()

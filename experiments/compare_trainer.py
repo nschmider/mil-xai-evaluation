@@ -24,8 +24,10 @@ class Logger:
 
 
 def plot_trainers(device):
-    """
-    Plots training accuracy and loss from TorchMIL trainer against self implemented trainer
+    """Plots training accuracy and loss from TorchMIL trainer against self-implemented trainer
+
+    Args:
+        device: Device used for computation
     """
     # Fix seed
     seed = 42
