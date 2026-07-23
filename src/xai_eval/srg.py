@@ -45,6 +45,39 @@ def srg(scores, model, device, num_bins=100, plot=True):
         plt.legend()
         plt.savefig("results/plots/srg/curve_plots.png")
         plt.close()
+
+        asc_preds = np.array(asc_preds)
+        desc_preds = np.array(desc_preds)
+
+        pos_labels = np.array(asc_preds[0]) >= 0.5
+        neg_labels = np.array(asc_preds[0]) < 0.5
+
+        preds_pos_asc = np.mean(asc_preds[:, pos_labels], axis=-1)
+        preds_pos_desc = np.mean(desc_preds[:, pos_labels], axis=-1)
+
+        plt.figure()
+        plt.plot(X, preds_pos_asc, label="Ascending")
+        plt.plot(X, preds_pos_desc, label="Descending")
+
+        plt.xlabel("Dropped fraction")
+        plt.ylabel("Model prediction")
+        plt.legend()
+        plt.savefig("results/plots/srg/curve_plots_pos.png")
+        plt.close()
+
+        preds_neg_asc = np.mean(asc_preds[:, neg_labels], axis=-1)
+        preds_neg_desc = np.mean(desc_preds[:, neg_labels], axis=-1)
+
+        plt.figure()
+        plt.plot(X, preds_neg_asc, label="Ascending")
+        plt.plot(X, preds_neg_desc, label="Descending")
+
+        plt.xlabel("Dropped fraction")
+        plt.ylabel("Model prediction")
+        plt.legend()
+        plt.savefig("results/plots/srg/curve_plots_neg.png")
+        plt.close()
+
     return {"srg": asc - desc, "ascending": asc, "descending": desc}
 
 

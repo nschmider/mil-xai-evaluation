@@ -20,18 +20,18 @@ def perturbation_one_bag(X, model, device, method):
     preds = []
     model.eval()
     with torch.no_grad():
+        X = X.to(device)
         if method == "one-removed":
-            pred_total = torch.sigmoid(model(X.to(device))).detach().cpu()
+            pred_total = model(X).detach().cpu()
         for patch_num in range(X.shape[1]):
             if method == "single":  # Computes the prediction for a single patch
-                X_subset = X[:, patch_num : patch_num + 1].to(device)
+                X_subset = X[:, patch_num : patch_num + 1]
                 pred = model(X_subset).detach().cpu()
             elif method == "one-removed":  # Leaves out the current bag for a prediction
-                X = X.to(device)
                 indices = torch.arange(X.shape[1])
                 indices = indices[indices != patch_num]
                 X_subset = X[:, indices]
-                pred_subset = torch.sigmoid(model(X_subset)).detach().cpu()
+                pred_subset = model(X_subset).detach().cpu()
                 pred = pred_total - pred_subset
             else:
                 raise ValueError(f"Unknown perturbation method: {method}")
@@ -103,25 +103,40 @@ def combined_perturbation(dataset, model, device):
         scores.append(preds_combined)
         single.append(preds_single)
         one_removed.append(preds_one_removed)
-    return {
-        "combined": scores,
-        "single": single,
-        "one_removed": one_removed
-    }
+    return {"combined": scores, "single": single, "one_removed": one_removed}
 
 
-def milli(dataset, model, n_masks, scores, device, alpha, beta):
+def milli(dataset, model, n_masks, initial_scores, device, alpha, beta):
+    """Performs MILLI perturbation with hyperparameters alpha and beta.
+    Samples coalitions of patches and fits a linear classifier to predict from the cohort to a prediction.
+    Returns the classifier's coefficients as attribution scores.
+
+    Args:
+        dataset: The dataset
+        model: The trained model
+        n_masks: Number of cohorts to sample per bag
+        initial_scores: Perturbation scores as heuristic for sampling
+        device: Device used for computation
+        alpha: Hyperparameter alpha, if alpha < 0.5, lower relevance instances are preferred in sampling
+        beta: Hyperparameter beta, higher beta prefers bigger coalitions
+
+    Returns:
+        The classifier's coefficients
+    """
     model.eval()
     pi_rs = []
-    
-    beta_hat = -beta if alpha < 0.5 else beta
-    for score in scores:
+    scores = []
+
+    beta_hat = beta if alpha < 0.5 else -beta
+    for score in initial_scores:
         r = compute_initial_ranking(score)
         k = len(r)
         if beta_hat >= 0:
             pi_r = (2 * alpha - 1) * (1 - r / k) * torch.exp(-beta_hat * r) + 1 - alpha
         else:
-            pi_r = (1 - 2 * alpha) * (1 + (r-k) / k) * torch.exp(torch.abs(beta_hat) * (r-k)) + alpha
+            pi_r = (1 - 2 * alpha) * (1 + (r - k) / k) * torch.exp(
+                torch.abs(torch.tensor(beta_hat)) * (r - k)
+            ) + alpha
         pi_rs.append(pi_r)
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
@@ -135,16 +150,11 @@ def milli(dataset, model, n_masks, scores, device, alpha, beta):
                 X = bag["X"].to(device)
 
                 # Sample patches
-                
                 mask = torch.bernoulli(pi_r)
                 while mask.sum() == 0:
                     mask = torch.bernoulli(pi_r)
                 weight = 1 / mask.sum() * torch.sum(mask * pi_r)
-                # print("patches", X.shape[1])
-                # print("mask.sum", mask.sum())
-                # print("mask.len", len(mask))
                 X_subset = X[:, mask.bool()]
-                # print(X_subset.shape)
 
                 # Predict logits
                 pred = model(X_subset)
@@ -161,12 +171,20 @@ def milli(dataset, model, n_masks, scores, device, alpha, beta):
 
             # Extract scores
             coefs = torch.tensor(lr.coef_).squeeze()
-            # print("coef shape", coefs.shape)
             scores.append(coefs)
     return scores
 
 
 def compute_initial_ranking(scores):
+    """Computes the rank of the score.
+    Example: compute_initial_ranking([1, 4, 2, -1, 6, 0]) -> [3, 1, 2, 5, 0, 4]
+
+    Args:
+        scores: Initial scores
+
+    Returns:
+        Initial rank of the scores
+    """
     ranking = torch.argsort(scores, descending=True)
     r = torch.zeros_like(ranking)
     r[ranking] = torch.arange(len(ranking))

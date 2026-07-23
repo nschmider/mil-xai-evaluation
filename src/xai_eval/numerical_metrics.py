@@ -102,6 +102,11 @@ def compute_numerical_metrics(scores, patch_labels):
     auroc_pos = roc_auc_score(positive_labels, positive_scores)
     ap_pos = average_precision_score(positive_labels, positive_scores)
 
+    fpr_pos, tpr_pos, roc_thresholds_pos = roc_curve(positive_labels, positive_scores)
+    precision_pos, recall_pos, pr_thresholds_pos = precision_recall_curve(
+        positive_labels, positive_scores
+    )
+
     # Negative
     auroc_neg = roc_auc_score(negative_labels, negative_scores)
     ap_neg = average_precision_score(negative_labels, negative_scores)
@@ -114,6 +119,7 @@ def compute_numerical_metrics(scores, patch_labels):
     return {
         "auroc": auroc,
         "average_precision": ap,
+        "positive_labels": positive_labels,
         "normalized_auroc": norm_auroc,
         "normalized_average_precision": norm_ap,
         "normalized_correlation": norm_corr_value,
@@ -136,6 +142,16 @@ def compute_numerical_metrics(scores, patch_labels):
             "precision": precision,
             "recall": recall,
             "thresholds": pr_thresholds,
+        },
+        "roc_pos": {
+            "fpr": fpr_pos,
+            "tpr": tpr_pos,
+            "thresholds": roc_thresholds_pos,
+        },
+        "pr_pos": {
+            "precision": precision_pos,
+            "recall": recall_pos,
+            "thresholds": pr_thresholds_pos,
         },
         "norm_roc": {
             "fpr": norm_fpr,

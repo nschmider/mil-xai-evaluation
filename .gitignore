@@ -16,6 +16,7 @@ env/
 models/
 *.pth
 *.pt
+*.xlsx
 
 # Dataset
 data/
