@@ -1,3 +1,4 @@
+from sklearn.linear_model import LinearRegression
 import torch
 from torch.utils.data import DataLoader
 from torchmil.data import collate_fn
@@ -25,13 +26,15 @@ def perturbation_one_bag(X, model, device, method):
             if method == "single":  # Computes the prediction for a single patch
                 X_subset = X[:, patch_num : patch_num + 1].to(device)
                 pred = model(X_subset).detach().cpu()
-            if method == "one-removed":  # Leaves out the current bag for a prediction
+            elif method == "one-removed":  # Leaves out the current bag for a prediction
                 X = X.to(device)
                 indices = torch.arange(X.shape[1])
                 indices = indices[indices != patch_num]
                 X_subset = X[:, indices]
                 pred_subset = torch.sigmoid(model(X_subset)).detach().cpu()
                 pred = pred_total - pred_subset
+            else:
+                raise ValueError(f"Unknown perturbation method: {method}")
             preds.append(pred)
     preds = torch.cat(preds).squeeze()  # Reshapes to a tensor of size (num_patches,)
     return preds
@@ -105,3 +108,66 @@ def combined_perturbation(dataset, model, device):
         "single": single,
         "one_removed": one_removed
     }
+
+
+def milli(dataset, model, n_masks, scores, device, alpha, beta):
+    model.eval()
+    pi_rs = []
+    
+    beta_hat = -beta if alpha < 0.5 else beta
+    for score in scores:
+        r = compute_initial_ranking(score)
+        k = len(r)
+        if beta_hat >= 0:
+            pi_r = (2 * alpha - 1) * (1 - r / k) * torch.exp(-beta_hat * r) + 1 - alpha
+        else:
+            pi_r = (1 - 2 * alpha) * (1 + (r-k) / k) * torch.exp(torch.abs(beta_hat) * (r-k)) + alpha
+        pi_rs.append(pi_r)
+
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    with torch.no_grad():
+        for bag_num, bag in enumerate(tqdm(dataloader)):
+            masks = []
+            preds = []
+            pi_r = pi_rs[bag_num]
+            pi_m = []
+            for _ in range(n_masks):
+                X = bag["X"].to(device)
+
+                # Sample patches
+                
+                mask = torch.bernoulli(pi_r)
+                while mask.sum() == 0:
+                    mask = torch.bernoulli(pi_r)
+                weight = 1 / mask.sum() * torch.sum(mask * pi_r)
+                # print("patches", X.shape[1])
+                # print("mask.sum", mask.sum())
+                # print("mask.len", len(mask))
+                X_subset = X[:, mask.bool()]
+                # print(X_subset.shape)
+
+                # Predict logits
+                pred = model(X_subset)
+
+                masks.append(mask.cpu())
+                preds.append(pred.cpu())
+                pi_m.append(weight.item())
+
+            # Fit model
+            lr = LinearRegression()
+            masks = torch.stack(masks).numpy()
+            preds = torch.stack(preds).numpy()
+            lr.fit(masks, preds, sample_weight=pi_m)
+
+            # Extract scores
+            coefs = torch.tensor(lr.coef_).squeeze()
+            # print("coef shape", coefs.shape)
+            scores.append(coefs)
+    return scores
+
+
+def compute_initial_ranking(scores):
+    ranking = torch.argsort(scores, descending=True)
+    r = torch.zeros_like(ranking)
+    r[ranking] = torch.arange(len(ranking))
+    return r
