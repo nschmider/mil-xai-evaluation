@@ -65,7 +65,7 @@ def integrated_gradients(dataset, model, device, steps=50):
             sum_term += X.grad
 
         # Compute approximation of the integral
-        IG_i = X * 1 / len(alphas) * sum_term.squeeze()
+        IG_i = 1 / len(alphas) * X.squeeze() * sum_term.squeeze()
         IG_i_sum = IG_i.sum(dim=-1)
         scores.append(IG_i_sum.detach().cpu())
     return scores
