@@ -10,6 +10,11 @@ execution_order = []
 
 
 def save_activations(name):
+    """Generates the hooks for the layers
+
+    Args:
+        name: Name of the layer
+    """
     def hook(module, input, output):
         if (name, module) not in execution_order:
             execution_order.append((name, module))
@@ -33,6 +38,15 @@ def register_hooks(model):
 
 
 def modify_weights(weights, gamma):
+    """Modifies the weights with the gamma-rule. If gamma = 0, this is the epsilon-rule
+
+    Args:
+        weights: The weights
+        gamma: The weight of the gamma rule, adds the non-zero weight scaled by gamma
+
+    Returns:
+        The modified weights
+    """
     zeros = torch.zeros_like(weights)
     non_negative, _ = torch.max(torch.cat((zeros, weights), dim=0), dim=0, keepdim=True)
     return weights + gamma * non_negative

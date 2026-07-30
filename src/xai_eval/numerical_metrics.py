@@ -17,6 +17,7 @@ def compute_numerical_metrics(scores, patch_labels, slide_ground_truth=None):
     Args:
         scores: Attribution scores
         patch_labels: Patch labels
+        slide_ground_truth: Ground truth of the slide label. Defaults to None.
 
     Returns:
         Metrics dict containing the metrics
