@@ -69,3 +69,30 @@ def integrated_gradients(dataset, model, device, steps=50):
         IG_i_sum = IG_i.sum(dim=-1)
         scores.append(IG_i_sum.detach().cpu())
     return scores
+
+
+def squared_gradients(dataset, model, device):
+    """Grad2
+
+    Args:
+        dataset: The dataset
+        model: The trained model
+        device: Device used for computation
+
+    Returns:
+        Return attribution scores accoding to Grad2
+    """
+    scores = []
+    model.eval()
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    for bag in tqdm(dataloader):
+        X = bag["X"].to(device)
+        X.requires_grad_(True)
+        model.zero_grad()
+        X.grad = None
+        pred = model(X).squeeze()
+        pred.backward()
+        grad = X.grad
+        squared_gradient = (grad * grad).sum(dim=-1).detach().cpu().squeeze()
+        scores.append(squared_gradient)
+    return scores

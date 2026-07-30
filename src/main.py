@@ -9,7 +9,11 @@ from torchmil.data import collate_fn
 
 from src.training import evaluate, train
 from src.utils import shape_test
-from src.xai_eval.gradient import gradient_x_input, integrated_gradients
+from src.xai_eval.gradient import (
+    gradient_x_input,
+    integrated_gradients,
+    squared_gradients,
+)
 from src.xai_eval.lrp import lrp
 from src.xai_eval.numerical_metrics import (
     compute_numerical_metrics,
@@ -35,6 +39,7 @@ def main():
     test_dataset = CAMELYON16MILDataset(root="data", features="UNI", partition="test")
     slide_labels = torch.stack([slide["Y"] for slide in test_dataset])
 
+    squared_gradients_scores = torch.load("results/scores/squared_gradients_scores.pt")
     lrp_scores = torch.load("results/scores/lrp_scores.pt")
     patch_labels = torch.load("results/scores/patch_labels.pt")
     attention_scores = torch.load("results/scores/attention_scores.pt")
@@ -51,6 +56,7 @@ def main():
         "combined_perturbation": perturbation_scores["combined"],
         "gradient_x_input": gradient_x_input_scores,
         "integrated_gradients": ig_scores,
+        "squared_gradients": squared_gradients_scores,
         "lrp": lrp_scores,
     }
 
