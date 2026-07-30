@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 from sklearn.metrics import (
     average_precision_score,
     precision_recall_curve,
@@ -10,7 +11,7 @@ import torch
 from src.utils import min_max_normalization
 
 
-def compute_numerical_metrics(scores, patch_labels):
+def compute_numerical_metrics(scores, patch_labels, slide_ground_truth=None):
     """Computes numerical metrics like AUROC and Average precision
 
     Args:
@@ -59,6 +60,12 @@ def compute_numerical_metrics(scores, patch_labels):
             ]
         )
     )
+    positive_slide_scores = [
+        score for score, is_tumor in zip(scores, slide_ground_truth) if is_tumor
+    ]  # Scores on positive slides
+    positive_slide_labels = [
+        label for label, is_tumor in zip(patch_labels, slide_ground_truth) if is_tumor
+    ]  # Patch labels on positive slides
     scores = torch.cat(tuple([score.cpu().flatten() for score in scores]))
     patch_labels = torch.cat(
         tuple([patch_label.cpu().flatten() for patch_label in patch_labels])
@@ -95,6 +102,56 @@ def compute_numerical_metrics(scores, patch_labels):
     norm_precision, norm_recall, norm_pr_thresholds = precision_recall_curve(
         patch_labels, norm_scores
     )
+
+    ### Test with only positive slides ###
+    if slide_ground_truth is not None:
+        # Macro-averaging
+        pos_slide_auroc_macro = np.mean(
+            [
+                roc_auc_score(positive_slide_label, positive_slide_score)
+                for positive_slide_label, positive_slide_score in zip(
+                    positive_slide_labels, positive_slide_scores
+                )
+            ]
+        )
+        pos_slide_ap_macro = np.mean(
+            [
+                average_precision_score(positive_slide_label, positive_slide_score)
+                for positive_slide_label, positive_slide_score in zip(
+                    positive_slide_labels, positive_slide_scores
+                )
+            ]
+        )
+
+        pos_corr_values_macro = []
+        for positive_slide_label, positive_slide_score in zip(
+            positive_slide_labels, positive_slide_scores
+        ):
+            combined = torch.stack((positive_slide_label, positive_slide_score))
+            corr = torch.corrcoef(combined)
+            pos_corr_values_macro.append(corr[0, 1].item())
+        pos_corr_value_macro = np.mean(pos_corr_values_macro)
+
+        # Micro-averaging
+        positive_slide_scores_flattened = torch.cat(
+            tuple([score.cpu().flatten() for score in positive_slide_scores])
+        )
+        positive_slide_labels_flattened = torch.cat(
+            tuple(
+                [patch_label.cpu().flatten() for patch_label in positive_slide_labels]
+            )
+        )
+        pos_slide_auroc_micro = roc_auc_score(
+            positive_slide_labels_flattened, positive_slide_scores_flattened
+        )
+        pos_slide_ap_micro = average_precision_score(
+            positive_slide_labels_flattened, positive_slide_scores_flattened
+        )
+        combined = torch.stack(
+            (positive_slide_labels_flattened, positive_slide_scores_flattened)
+        )
+        corr = torch.corrcoef(combined)
+        pos_corr_value_micro = corr[0, 1].item()
 
     ### Test with positive and negative instances ###
 
@@ -133,6 +190,18 @@ def compute_numerical_metrics(scores, patch_labels):
         "positive_slide_ap": ap_pos,
         "negative_slide_auroc": auroc_neg,
         "negative_slide_ap": ap_neg,
+        "ground_truth_positive_slides": {
+            "macro": {
+                "ap": pos_slide_ap_macro,
+                "auroc": pos_slide_auroc_macro,
+                "pearson": pos_corr_value_macro,
+            },
+            "micro": {
+                "ap": pos_slide_ap_micro,
+                "auroc": pos_slide_auroc_micro,
+                "pearson": pos_corr_value_micro,
+            },
+        },
         "roc": {
             "fpr": fpr,
             "tpr": tpr,
