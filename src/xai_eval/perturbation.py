@@ -175,6 +175,41 @@ def milli(dataset, model, n_masks, initial_scores, device, alpha, beta):
     return scores
 
 
+def rise(dataset, model, n_masks, p, device):
+    scores = []
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    with torch.no_grad():
+        for bag in tqdm(dataloader):
+            masks = []
+            preds = []
+            for _ in range(n_masks):
+                X = bag["X"].to(device)
+
+                # Sample patches
+                mask = torch.bernoulli(torch.full((X.shape[1],), p))
+                while mask.sum() == 0:
+                    mask = torch.bernoulli(torch.full((X.shape[1],), p))
+                X_subset = X[:, mask.bool()]
+
+                # Predict logits
+                pred = model(X_subset)
+
+                masks.append(mask.unsqueeze(0))
+                preds.append(pred.unsqueeze(0))
+
+            masks = torch.cat(masks)  # (masks, patches)
+            masks = masks.to(device)
+            preds = torch.cat(preds)  # (masks, 1)
+
+            # Compute the predictions where the mask is active
+            masked_preds = masks * preds  # (masks, patches)
+            # Aggregate over masks
+            expected_score_sum = torch.sum(masked_preds, dim=0)  # (patches,)
+            expected_score = expected_score_sum / (torch.sum(masks, dim=0) + 1e-8)
+            scores.append(expected_score.cpu())
+    return scores
+
+
 def compute_initial_ranking(scores):
     """Computes the rank of the score.
     Example: compute_initial_ranking([1, 4, 2, -1, 6, 0]) -> [3, 1, 2, 5, 0, 4]
