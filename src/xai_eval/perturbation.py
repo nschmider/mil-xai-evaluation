@@ -178,6 +178,18 @@ def milli(dataset, model, n_masks, initial_scores, device, alpha, beta):
 
 
 def rise(dataset, model, n_masks, p, device):
+    """RISE. Averages the predictions of all coalitions containing a certain patch
+
+    Args:
+        dataset: The dataset
+        model: The trained model
+        n_masks: Number of masks to be computed
+        p: Probability for a patch to be sampled
+        device: Device used for computation
+
+    Returns:
+        RISE attribution score
+    """
     scores = []
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
     with torch.no_grad():
