@@ -15,6 +15,7 @@ def save_activations(name):
     Args:
         name: Name of the layer
     """
+
     def hook(module, input, output):
         if (name, module) not in execution_order:
             execution_order.append((name, module))

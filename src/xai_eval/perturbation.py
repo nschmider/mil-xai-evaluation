@@ -1,4 +1,6 @@
-from sklearn.linear_model import LinearRegression
+import math
+
+from sklearn.linear_model import LinearRegression, Ridge
 import torch
 from torch.utils.data import DataLoader
 from torchmil.data import collate_fn
@@ -207,6 +209,71 @@ def rise(dataset, model, n_masks, p, device):
             expected_score_sum = torch.sum(masked_preds, dim=0)  # (patches,)
             expected_score = expected_score_sum / (torch.sum(masks, dim=0) + 1e-8)
             scores.append(expected_score.cpu())
+    return scores
+
+
+def lime(dataset, model, n_masks, device):
+    """Performs LIME.
+    Samples coalitions of patches and fits a linear classifier to predict from the cohort to a prediction.
+    Returns the classifier's coefficients as attribution scores.
+
+    Args:
+        dataset: The dataset
+        model: The trained model
+        n_masks: Number of cohorts to sample per bag
+        device: Device used for computation
+        
+    Returns:
+        The classifier's coefficients
+    """
+    model.eval()
+    pi_z = []
+    scores = []
+
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    with torch.no_grad():
+        for _, bag in enumerate(tqdm(dataloader)):
+            masks = []
+            preds = []
+            pi_z = []
+
+            X = bag["X"].to(device)
+            num_patches = X.shape[1]
+            masks.append(torch.ones(num_patches))
+            preds.append(model(X).cpu())
+            pi_z.append(1.0)
+
+            for _ in range(n_masks):
+                # Sample patches
+                num_patches_to_sample = torch.randint(
+                    low=1, high=num_patches + 1, size=(1,)
+                ).item()
+                mask = torch.randperm(num_patches)[:num_patches_to_sample]
+                bin_mask = torch.zeros((num_patches,))
+                bin_mask[mask] = 1
+
+                distance = num_patches - num_patches_to_sample
+                sigma = 0.25 * math.sqrt(num_patches)
+                weight = torch.exp(torch.tensor(-distance / sigma**2))
+
+                X_subset = X[:, mask]
+
+                # Predict logits
+                pred = model(X_subset)
+
+                masks.append(bin_mask.cpu())
+                preds.append(pred.cpu())
+                pi_z.append(weight.item())
+
+            # Fit model
+            lr = Ridge()
+            masks = torch.stack(masks).numpy()
+            preds = torch.stack(preds).numpy().squeeze()
+            lr.fit(masks, preds, sample_weight=pi_z)
+
+            # Extract scores
+            coefs = torch.tensor(lr.coef_).squeeze()
+            scores.append(coefs)
     return scores
 
 
