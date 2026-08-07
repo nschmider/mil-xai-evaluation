@@ -1,5 +1,7 @@
 import math
+import time
 
+from scipy.special import gammaln
 from sklearn.linear_model import LinearRegression, Ridge
 import torch
 from torch.utils.data import DataLoader
@@ -116,7 +118,7 @@ def milli(dataset, model, n_masks, initial_scores, device, alpha, beta):
     Args:
         dataset: The dataset
         model: The trained model
-        n_masks: Number of cohorts to sample per bag
+        n_masks: Number of coalitions to sample per bag
         initial_scores: Perturbation scores as heuristic for sampling
         device: Device used for computation
         alpha: Hyperparameter alpha, if alpha < 0.5, lower relevance instances are preferred in sampling
@@ -188,7 +190,7 @@ def rise(dataset, model, n_masks, p, device):
         device: Device used for computation
 
     Returns:
-        RISE attribution score
+        RISE attribution score for each patch
     """
     scores = []
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
@@ -234,12 +236,11 @@ def lime(dataset, model, n_masks, device):
         model: The trained model
         n_masks: Number of cohorts to sample per bag
         device: Device used for computation
-        
+
     Returns:
         The classifier's coefficients
     """
     model.eval()
-    pi_z = []
     scores = []
 
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
@@ -281,7 +282,97 @@ def lime(dataset, model, n_masks, device):
             lr = Ridge()
             masks = torch.stack(masks).numpy()
             preds = torch.stack(preds).numpy().squeeze()
+            print(masks.shape, preds.shape, len(pi_z))
             lr.fit(masks, preds, sample_weight=pi_z)
+
+            # Extract scores
+            coefs = torch.tensor(lr.coef_).squeeze()
+            scores.append(coefs)
+    return scores
+
+
+def kernel_shap(dataset, model, n_masks, device):
+    """Performs KernelSHAP.
+    Samples coalitions of patches and fits a linear classifier to predict from the cohort to a prediction.
+    Returns the classifier's coefficients as attribution scores.
+
+    Args:
+        dataset: The dataset
+        model: The trained model
+        n_masks: Number of cohorts to sample per bag
+        device: Device used for computation
+
+    Returns:
+        The classifier's coefficients
+    """
+    model.eval()
+    scores = []
+
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
+    with torch.no_grad():
+        for _, bag in enumerate(tqdm(dataloader)):
+            masks = []
+            preds = []
+            pi_z = []
+
+            # Add full bag, as kernel would be infinity
+            X = bag["X"].to(device)
+            num_patches = X.shape[1]
+            full_mask = torch.ones((num_patches,))
+            full_pred = model(X).cpu()
+            masks.append(full_mask.cpu())
+            preds.append(full_pred.cpu())
+            pi_z.append(math.log(1e6))
+
+            # Add empty bag with null embedding
+            X_subset = torch.zeros_like(X)
+            empty_mask = torch.zeros((num_patches,))
+            empty_pred = model(X_subset).cpu()
+            masks.append(empty_mask.cpu())
+            preds.append(empty_pred.cpu())
+            pi_z.append(math.log(1e6))
+
+            ln_n_fac = gammaln(num_patches + 1)
+
+            for _ in range(n_masks):
+                # Sample patches
+                num_patches_to_sample = torch.randint(
+                    low=1, high=num_patches, size=(1,)
+                ).item()
+                mask = torch.randperm(num_patches)[:num_patches_to_sample]
+                bin_mask = torch.zeros((num_patches,))
+                bin_mask[mask] = 1
+
+                # Compute weight
+                log_comb = ln_n_fac - gammaln(num_patches_to_sample + 1) - gammaln(num_patches - num_patches_to_sample + 1)
+                weight = math.log(num_patches - 1) - (
+                    (log_comb) + math.log(num_patches_to_sample)
+                    + math.log(num_patches - num_patches_to_sample)
+                )
+
+                X_subset = X[:, mask]
+
+                # Predict logits
+                pred = model(X_subset).cpu()
+
+                masks.append(bin_mask.cpu())
+                preds.append(pred.cpu())
+                pi_z.append(weight)
+
+            # Fit model
+            # lr = LinearRegression(fit_intercept=True)
+            t1 = time.time()
+            lr = Ridge(alpha=1e-6, fit_intercept=True)
+            masks = torch.stack(masks).numpy()
+            preds = torch.stack(preds).numpy().squeeze()
+            t3 = time.time()
+            pi_max = max(pi_z)
+            pi_z = [math.exp(pi - pi_max) for pi in pi_z]
+            t4 = time.time()
+            print(t4-t3, "secs to exponentiate")
+            lr.fit(masks, preds, sample_weight=pi_z)
+            t2 = time.time()
+            print(t2-t1)
 
             # Extract scores
             coefs = torch.tensor(lr.coef_).squeeze()
