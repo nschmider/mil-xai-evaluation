@@ -291,7 +291,7 @@ def lime(dataset, model, n_masks, device):
     return scores
 
 
-def kernel_shap(dataset, model, n_masks, device):
+def shap(dataset, model, n_masks, device):
     """Performs KernelSHAP.
     Samples coalitions of patches and fits a linear classifier to predict from the cohort to a prediction.
     Returns the classifier's coefficients as attribution scores.
@@ -360,19 +360,18 @@ def kernel_shap(dataset, model, n_masks, device):
                 pi_z.append(weight)
 
             # Fit model
-            # lr = LinearRegression(fit_intercept=True)
-            t1 = time.time()
-            lr = Ridge(alpha=1e-6, fit_intercept=True)
+            lr = LinearRegression(fit_intercept=True)
+            # t1 = time.time()
             masks = torch.stack(masks).numpy()
             preds = torch.stack(preds).numpy().squeeze()
-            t3 = time.time()
+            # t3 = time.time()
             pi_max = max(pi_z)
             pi_z = [math.exp(pi - pi_max) for pi in pi_z]
-            t4 = time.time()
-            print(t4-t3, "secs to exponentiate")
+            # t4 = time.time()
+            # print(t4-t3, "secs to exponentiate")
             lr.fit(masks, preds, sample_weight=pi_z)
-            t2 = time.time()
-            print(t2-t1)
+            # t2 = time.time()
+            # print(t2-t1)
 
             # Extract scores
             coefs = torch.tensor(lr.coef_).squeeze()

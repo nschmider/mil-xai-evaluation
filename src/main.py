@@ -7,7 +7,8 @@ from torchmil.models import ABMIL
 from torch.utils.data import DataLoader
 from torchmil.data import collate_fn
 
-from src.training import evaluate, train
+from src.models import ShapPredictor
+from src.training import evaluate, train, train_shap_predictor, eval_shap_predictor
 from src.utils import shape_test
 from src.xai_eval.gradient import (
     gradient_x_input,
@@ -22,7 +23,10 @@ from src.xai_eval.numerical_metrics import (
 from src.xai_eval.perturbation import (
     combined_perturbation,
     one_removed_perturbation,
+    shap,
+    lime,
     milli,
+    rise,
     single_perturbation,
 )
 from src.xai_eval.plot import plot_all_numerical_metrics
@@ -36,9 +40,21 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = ABMIL(in_shape=(1024,), criterion=torch.nn.BCEWithLogitsLoss()).to(device)
     model.load_state_dict(torch.load("models/model.pth", weights_only=True))
+    train_dataset = CAMELYON16MILDataset(root="data", features="UNI", partition="train") 
     test_dataset = CAMELYON16MILDataset(root="data", features="UNI", partition="test")
     slide_labels = torch.stack([slide["Y"] for slide in test_dataset])
 
+    # trained_shap_scores_1k = torch.load("results/scores/trained_shap_scores")
+    # shap_scores_1k = torch.load("results/scores/shap_scores")
+    shap_predictor = train_shap_predictor(model, train_dataset, 2000, device)
+    torch.save(shap_predictor.state_dict(), "models/shap_predictor.pth")
+    trained_shap_scores = eval_shap_predictor(shap_predictor, test_dataset, device)
+    torch.save(trained_shap_scores, "results/scores/trained_shap_scores")
+    shap_scores = shap(test_dataset, model, 2000, device)
+    torch.save(shap_scores, "results/scores/shap_scores")
+    shap_scores = torch.load("results/scores/shap_scores.pt")
+    lime_scores = torch.load("results/scores/lime_scores.pt")
+    rise_scores = torch.load("results/scores/rise_scores.pt")
     squared_gradients_scores = torch.load("results/scores/squared_gradients_scores.pt")
     lrp_scores = torch.load("results/scores/lrp_scores.pt")
     patch_labels = torch.load("results/scores/patch_labels.pt")
@@ -58,6 +74,9 @@ def main():
         "integrated_gradients": ig_scores,
         "squared_gradients": squared_gradients_scores,
         "lrp": lrp_scores,
+        "rise": rise_scores,
+        "lime": lime_scores,
+        "shap": shap_scores,
     }
 
     shape_test(test_dataset, scores)
