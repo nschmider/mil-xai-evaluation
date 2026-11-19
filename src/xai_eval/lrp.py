@@ -34,8 +34,15 @@ def save_activations(name):
 
 
 def register_hooks(model):
+    activations.clear()
+    execution_order.clear()
+
+    handles = []
+
     for name, layer in model.named_modules():
-        layer.register_forward_hook(save_activations(name))
+        handles.append(layer.register_forward_hook(save_activations(name)))
+
+    return handles
 
 
 def modify_weights(weights, gamma):
@@ -55,7 +62,7 @@ def modify_weights(weights, gamma):
 
 def lrp(dataset, model, device):
     scores = []
-    register_hooks(model)
+    handles = register_hooks(model)
     eps = 1e-7
     chunk_size = 256
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)
@@ -105,7 +112,16 @@ def lrp(dataset, model, device):
                 denom = (
                     torch.sum(z, dim=1, keepdim=True) + eps
                 )  # (batch_dim, 1, feature_dim)
+                print("AttentionPool")
+                print("h:", h.shape)
+                print("attention:", attention.shape)
+                print("z:", z.shape)
+                print("denom:", denom.shape)
+                print("r:", r.shape)
                 r = z / denom * r
         # scores (1, patch_size, embedding_size)
         scores.append(r.sum(-1).flatten().detach().cpu())
+
+    for handle in handles:
+        handle.remove()
     return scores

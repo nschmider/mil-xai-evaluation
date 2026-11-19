@@ -1,3 +1,5 @@
+import time
+
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
@@ -24,12 +26,14 @@ def srg(scores, model, device, num_bins=100, plot=True):
     Returns:
         The Symmetric Relevance Gain
     """
+    t1 = time.time()
     asc, asc_preds = aupc(
         scores, model, descending=False, device=device, num_bins=num_bins
     )
     desc, desc_preds = aupc(
         scores, model, descending=True, device=device, num_bins=num_bins
     )
+    t2 = time.time()
     if plot:
         X = range(num_bins + 1)
         plt.figure()
@@ -65,8 +69,8 @@ def srg(scores, model, device, num_bins=100, plot=True):
         plt.savefig("results/plots/srg/curve_plots_pos.png")
         plt.close()
 
-        preds_neg_asc = np.mean(asc_preds[:, neg_labels], axis=-1)
-        preds_neg_desc = np.mean(desc_preds[:, neg_labels], axis=-1)
+        preds_neg_asc = np.sum(asc_preds[:, neg_labels], axis=-1) / num_bins
+        preds_neg_desc = np.sum(desc_preds[:, neg_labels], axis=-1) / num_bins
 
         plt.figure()
         plt.plot(X, preds_neg_asc, label="Ascending")
@@ -78,7 +82,7 @@ def srg(scores, model, device, num_bins=100, plot=True):
         plt.savefig("results/plots/srg/curve_plots_neg.png")
         plt.close()
 
-    return {"srg": asc - desc, "ascending": asc, "descending": desc}
+    return {"srg": asc - desc, "ascending": asc, "descending": desc, "time": t2 - t1}
 
 
 def aupc(scores, model, descending, device, num_bins=100):
@@ -102,13 +106,16 @@ def aupc(scores, model, descending, device, num_bins=100):
     # Bin scores
     for score in scores:  # iterates over bags
         binned_index = torch.argsort(score, dim=0, descending=descending)
+        print(binned_index)
         binned_scores = torch.tensor_split(
             binned_index, num_bins
         )  # split into num_bins bins, shape (num_bins, num_patches)
+        print(binned_scores)
         for bin in range(num_bins):
             kept = torch.cat(binned_scores[bin:])
             masks[bin].append(kept)
+        print(masks)
 
     output, preds = evaluate_mask(dataset, masks, model, device)
-
+    
     return output, preds

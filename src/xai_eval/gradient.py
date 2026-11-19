@@ -59,10 +59,10 @@ def integrated_gradients(dataset, model, device, steps=50):
             X_alpha = alpha * X
             X_alpha = X_alpha.to(device)
             model.zero_grad()
-            X.grad = None
+            X_alpha.grad = None
             pred_alpha = model(X_alpha).squeeze()
-            pred_alpha.backward()
-            sum_term += X.grad
+            X_alpha_grad = torch.autograd.grad(pred_alpha, X_alpha)[0]
+            sum_term += X_alpha_grad
 
         # Compute approximation of the integral
         IG_i = 1 / len(alphas) * X.squeeze() * sum_term.squeeze()
